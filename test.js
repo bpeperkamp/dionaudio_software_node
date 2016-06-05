@@ -7,8 +7,6 @@ var io            = require('socket.io')();
 var fs            = require('fs');
 var request       = require('request');
 var mac           = require('getmac');
-var WebSocket     = require('ws').Server;
-var wss           = new WebSocket({ port: 8080 });
 
 var serialPort = new serialport.SerialPort("/dev/cu.usbserial-AL00TXWF", {
   baudrate: 57600
