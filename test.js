@@ -35,7 +35,7 @@ board.on("ready", function() {
   var sensor        = new five.Sensor({pin: 0, freq: 200});
 
   sensor.scale(0, 100).on("change", function() {
-    console.log(round(this.value, 0));
+    io.emit('volume_value', round(this.value, 0));
   });
 
   function volume(data) {
@@ -106,7 +106,10 @@ board.on("ready", function() {
     switch(number) {
     case '1':
       toggle_Relay1();
-      console.log('relay: 1');
+      // Write to file
+      var active_relay = JSON.stringify({'active_relay': 1});
+      fs.writeFile('device/active_relay.json', active_relay, function() { });
+      leds.off();
       leds[0].strobe();
       timeout('0m 0.5s')
         .then(function() {
@@ -119,7 +122,10 @@ board.on("ready", function() {
       break;
     case '2':
       toggle_Relay2();
-      console.log('relay: 2');
+      // Write to file
+      var active_relay = JSON.stringify({'active_relay': 2});
+      fs.writeFile('device/active_relay.json', active_relay, function() { });
+      leds.off();
       leds[1].strobe();
       timeout('0m 0.5s')
         .then(function() {
@@ -132,7 +138,10 @@ board.on("ready", function() {
       break;
     case '3':
       toggle_Relay3();
-      console.log('relay: 3');
+      // Write to file
+      var active_relay = JSON.stringify({'active_relay': 3});
+      fs.writeFile('device/active_relay.json', active_relay, function() { });
+      leds.off();
       leds[2].strobe();
       timeout('0m 0.5s')
         .then(function() {
@@ -145,7 +154,10 @@ board.on("ready", function() {
       break;
     case '4':
       toggle_Relay4();
-      console.log('relay: 4');
+      // Write to file
+      var active_relay = JSON.stringify({'active_relay': 4});
+      fs.writeFile('device/active_relay.json', active_relay, function() { });
+      leds.off();
       leds[3].strobe();
       timeout('0m 0.5s')
         .then(function() {
@@ -158,7 +170,10 @@ board.on("ready", function() {
       break;
     case '5':
       toggle_Relay5();
-      console.log('relay: 5');
+      // Write to file
+      var active_relay = JSON.stringify({'active_relay': 5});
+      fs.writeFile('device/active_relay.json', active_relay, function() { });
+      leds.off();
       leds[4].strobe();
       timeout('0m 0.5s')
         .then(function() {
@@ -179,57 +194,67 @@ board.on("ready", function() {
   io.emit('message', 'Robot is online!');
 
   io.on('connection', function(socket, error) {
-    console.log('a user connected');
-    
+    //console.log('a user connected');
     socket.emit('message', 'You are connected to the Robot!');
-    
     socket.on('event', function(data) {
       //console.log('event: ', data);
     });
-
     socket.on('switch_command', function(data) {
       toggle_Relay(data);
     });
-
     socket.on('volume_command', function(data) {
       volume(data);
     });
-
     socket.on('disconnect', function() {
       //console.log('a user disconnected');
     });
-
     socket.on('message', function(data) {
       //console.log('message', data);
     });
-
   });
 
+  timeout('0m 0s')
+    .then(function() {
+      // Read initial setting
+      fs.readFile('device/active_relay.json', 'utf8', (err, data) => {
+        if (err) {
+          console.log(err);
+          // Write to file
+          var active_relay = JSON.stringify({'active_relay': 1});
+          fs.writeFile('device/active_relay.json', active_relay, function() { });
+          toggle_Relay('1');
+        } else {
+          console.log(data);
+          var setting = JSON.parse(data);
+          switch(setting.active_relay) {
+            case 1:
+              toggle_Relay('1');
+              console.log('relay 1 is active');
+              break;
+            case 2:
+              toggle_Relay('2');
+              console.log('relay 2 is active');
+              break;
+            case 3:
+              toggle_Relay('3');
+              console.log('relay 3 is active');
+              break;
+            case 4:
+              toggle_Relay('4');
+              console.log('relay 4 is active');
+              break;
+            case 5:
+              toggle_Relay('5');
+              console.log('relay 5 is active');
+              break;
+            default:
+              console.log('default');
+          }
+        };
+      });
+      // var setting = JSON.parse( fs.readFileSync('device/active_relay.json', 'utf8') );
+    });
+
   io.listen(3000);
-
-  // timeout('0m 0s')
-  //   .then(function() {
-  //     toggle_Relay1();
-  //   });
-
-  // timeout('0m 3s')
-  //   .then(function() {
-  //     toggle_Relay2();
-  //   });
-
-  // timeout('0m 6s')
-  //   .then(function() {
-  //     toggle_Relay3();
-  //   });
-
-  // timeout('0m 9s')
-  //   .then(function() {
-  //     toggle_Relay4();
-  //   });
-
-  // timeout('0m 12s')
-  //   .then(function() {
-  //     toggle_Relay5();
-  //   });
 
 });
