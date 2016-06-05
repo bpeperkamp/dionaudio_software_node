@@ -2,8 +2,11 @@ var serialport    = require("serialport");
 var five          = require("johnny-five");
 var timeout       = require('easy-timeout').Timeout;
 var interval      = require('easy-timeout').Interval;
+var ip            = require('ip');
 var io            = require('socket.io')();
 var fs            = require('fs');
+var request       = require('request');
+var mac           = require('getmac');
 
 var serialPort = new serialport.SerialPort("/dev/cu.usbserial-AL00TXWF", {
   baudrate: 57600
@@ -11,12 +14,31 @@ var serialPort = new serialport.SerialPort("/dev/cu.usbserial-AL00TXWF", {
 
 var board = new five.Board({
   port: serialPort,
-  debug: true
+  debug: false
 });
 
 function round(value, decimals) {
     return Number(Math.round(value+'e'+decimals)+'e-'+decimals);
 }
+
+fs.readFile('device/device.json', 'utf8', (err, data) => {
+  var postData = {
+    name: data,
+    password: 'secret'
+  }
+  var url = 'https://things.opensource-design.nl/api/auth/login'
+  var options = {
+    method: 'post',
+    body: postData,
+    json: true,
+    url: url
+  }
+  request(options, function (err, res, body) {
+    var headers = res.headers
+    var statusCode = res.statusCode
+    fs.writeFile('device/data.json', res.body.token, function() { });
+  })
+});
 
 board.on("ready", function() {
 
@@ -28,8 +50,8 @@ board.on("ready", function() {
   var relay4        = new five.Relay({pin: 5, type: 'NO'});
   var relay5        = new five.Relay({pin: 6, type: 'NO'});
 
-  var volup_pin     = new five.Pin(17);
-  var voldown_pin   = new five.Pin(16);
+  var volup_pin     = new five.Pin(16);
+  var voldown_pin   = new five.Pin(17);
   var mute_pin      = new five.Pin(15);
 
   var sensor        = new five.Sensor({pin: 0, freq: 200});
@@ -218,43 +240,67 @@ board.on("ready", function() {
       // Read initial setting
       fs.readFile('device/active_relay.json', 'utf8', (err, data) => {
         if (err) {
-          console.log(err);
+          //console.log(err);
           // Write to file
           var active_relay = JSON.stringify({'active_relay': 1});
           fs.writeFile('device/active_relay.json', active_relay, function() { });
           toggle_Relay('1');
         } else {
-          console.log(data);
           var setting = JSON.parse(data);
           switch(setting.active_relay) {
             case 1:
               toggle_Relay('1');
-              console.log('relay 1 is active');
+              //console.log('relay 1 is active');
               break;
             case 2:
               toggle_Relay('2');
-              console.log('relay 2 is active');
+              //console.log('relay 2 is active');
               break;
             case 3:
               toggle_Relay('3');
-              console.log('relay 3 is active');
+              //console.log('relay 3 is active');
               break;
             case 4:
               toggle_Relay('4');
-              console.log('relay 4 is active');
+              //console.log('relay 4 is active');
               break;
             case 5:
               toggle_Relay('5');
-              console.log('relay 5 is active');
+              //console.log('relay 5 is active');
               break;
             default:
-              console.log('default');
+              //console.log('default');
           }
         };
       });
-      // var setting = JSON.parse( fs.readFileSync('device/active_relay.json', 'utf8') );
     });
 
-  io.listen(3000);
+    interval('0m 5s')
+      .execute(function() {
+        // Update IP
+        fs.readFile('device/data.json', 'utf8', (err, data) => {
+          if (err) throw err;
+          mac.getMac(function(err, macAddress){
+            if (err)  throw err
+            var postData = {
+              ip: ip.address(),
+              mac: macAddress
+            }
+            var url = 'https://things.opensource-design.nl/api/devices?token=' + data;
+            var options = {
+              method: 'put',
+              body: postData,
+              json: true,
+              url: url
+            }
+            request(options, function (err, res, body) {
+              var headers = res.headers
+              var statusCode = res.statusCode
+            })
+          })
+        });
+      });
+
+  io.listen(9080);
 
 });
