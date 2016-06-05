@@ -7,6 +7,8 @@ var io            = require('socket.io')();
 var fs            = require('fs');
 var request       = require('request');
 var mac           = require('getmac');
+var WebSocket     = require('ws').Server;
+var wss           = new WebSocket({ port: 8080 });
 
 var serialPort = new serialport.SerialPort("/dev/cu.usbserial-AL00TXWF", {
   baudrate: 57600
@@ -14,14 +16,14 @@ var serialPort = new serialport.SerialPort("/dev/cu.usbserial-AL00TXWF", {
 
 var board = new five.Board({
   port: serialPort,
-  debug: false
+  debug: true
 });
 
 function round(value, decimals) {
     return Number(Math.round(value+'e'+decimals)+'e-'+decimals);
 }
 
-fs.readFile('device/device.json', 'utf8', (err, data) => {
+fs.readFile('./device/device.json', 'utf8', (err, data) => {
   var postData = {
     name: data,
     password: 'secret'
@@ -36,7 +38,7 @@ fs.readFile('device/device.json', 'utf8', (err, data) => {
   request(options, function (err, res, body) {
     var headers = res.headers
     var statusCode = res.statusCode
-    fs.writeFile('device/data.json', res.body.token, function() { });
+    fs.writeFile('./device/data.json', res.body.token, function() { });
   })
 });
 
@@ -54,7 +56,7 @@ board.on("ready", function() {
   var voldown_pin   = new five.Pin(17);
   var mute_pin      = new five.Pin(15);
 
-  var sensor        = new five.Sensor({pin: 0, freq: 200});
+  var sensor        = new five.Sensor({pin: 0, freq: 100});
 
   sensor.scale(0, 100).on("change", function() {
     io.emit('volume_value', round(this.value, 0));
@@ -63,19 +65,19 @@ board.on("ready", function() {
   function volume(data) {
     switch(data) {
     case 'up_on':
-      console.log('vol up on');
+      //console.log('vol up on');
       volup_pin.high();
       break;
     case 'up_off':
-      console.log('vol up off');
+      //console.log('vol up off');
       volup_pin.low();
       break;
     case 'down_on':
-      console.log('vol down on');
+      //console.log('vol down on');
       voldown_pin.high();
       break;
     case 'down_off':
-      console.log('vol down off');
+      //console.log('vol down off');
       voldown_pin.low();
       break;
     default: 
@@ -130,7 +132,7 @@ board.on("ready", function() {
       toggle_Relay1();
       // Write to file
       var active_relay = JSON.stringify({'active_relay': 1});
-      fs.writeFile('device/active_relay.json', active_relay, function() { });
+      fs.writeFile('./device/active_relay.json', active_relay, function() { });
       leds.off();
       leds[0].strobe();
       timeout('0m 0.5s')
@@ -146,7 +148,7 @@ board.on("ready", function() {
       toggle_Relay2();
       // Write to file
       var active_relay = JSON.stringify({'active_relay': 2});
-      fs.writeFile('device/active_relay.json', active_relay, function() { });
+      fs.writeFile('./device/active_relay.json', active_relay, function() { });
       leds.off();
       leds[1].strobe();
       timeout('0m 0.5s')
@@ -162,7 +164,7 @@ board.on("ready", function() {
       toggle_Relay3();
       // Write to file
       var active_relay = JSON.stringify({'active_relay': 3});
-      fs.writeFile('device/active_relay.json', active_relay, function() { });
+      fs.writeFile('./device/active_relay.json', active_relay, function() { });
       leds.off();
       leds[2].strobe();
       timeout('0m 0.5s')
@@ -178,7 +180,7 @@ board.on("ready", function() {
       toggle_Relay4();
       // Write to file
       var active_relay = JSON.stringify({'active_relay': 4});
-      fs.writeFile('device/active_relay.json', active_relay, function() { });
+      fs.writeFile('./device/active_relay.json', active_relay, function() { });
       leds.off();
       leds[3].strobe();
       timeout('0m 0.5s')
@@ -194,7 +196,7 @@ board.on("ready", function() {
       toggle_Relay5();
       // Write to file
       var active_relay = JSON.stringify({'active_relay': 5});
-      fs.writeFile('device/active_relay.json', active_relay, function() { });
+      fs.writeFile('./device/active_relay.json', active_relay, function() { });
       leds.off();
       leds[4].strobe();
       timeout('0m 0.5s')
@@ -233,17 +235,21 @@ board.on("ready", function() {
     socket.on('message', function(data) {
       //console.log('message', data);
     });
+    socket.on('command', function(data) {
+      //console.log('message', data);
+    });
   });
 
   timeout('0m 0s')
     .then(function() {
+      mute_pin.low();
       // Read initial setting
-      fs.readFile('device/active_relay.json', 'utf8', (err, data) => {
+      fs.readFile('./device/active_relay.json', 'utf8', (err, data) => {
         if (err) {
           //console.log(err);
           // Write to file
           var active_relay = JSON.stringify({'active_relay': 1});
-          fs.writeFile('device/active_relay.json', active_relay, function() { });
+          fs.writeFile('./device/active_relay.json', active_relay, function() { });
           toggle_Relay('1');
         } else {
           var setting = JSON.parse(data);
@@ -278,7 +284,7 @@ board.on("ready", function() {
     interval('0m 5s')
       .execute(function() {
         // Update IP
-        fs.readFile('device/data.json', 'utf8', (err, data) => {
+        fs.readFile('./device/data.json', 'utf8', (err, data) => {
           if (err) throw err;
           mac.getMac(function(err, macAddress){
             if (err)  throw err
