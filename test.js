@@ -35,7 +35,7 @@ board.on("ready", function() {
   var sensor        = new five.Sensor({pin: 0, freq: 200});
 
   sensor.scale(0, 100).on("change", function() {
-    //console.log(round(this.value, 0));
+    console.log(round(this.value, 0));
   });
 
   function volume(data) {
@@ -111,6 +111,10 @@ board.on("ready", function() {
       timeout('0m 0.5s')
         .then(function() {
           leds[0].stop().off();
+          timeout('0m 0.5s')
+            .then(function() {
+              leds[0].on();
+            })
         });
       break;
     case '2':
@@ -120,6 +124,10 @@ board.on("ready", function() {
       timeout('0m 0.5s')
         .then(function() {
           leds[1].stop().off();
+          timeout('0m 0.5s')
+            .then(function() {
+              leds[1].on();
+            })
         });
       break;
     case '3':
@@ -129,6 +137,10 @@ board.on("ready", function() {
       timeout('0m 0.5s')
         .then(function() {
           leds[2].stop().off();
+          timeout('0m 0.5s')
+            .then(function() {
+              leds[2].on();
+            })
         });
       break;
     case '4':
@@ -138,6 +150,10 @@ board.on("ready", function() {
       timeout('0m 0.5s')
         .then(function() {
           leds[3].stop().off();
+          timeout('0m 0.5s')
+            .then(function() {
+              leds[3].on();
+            })
         });
       break;
     case '5':
@@ -147,6 +163,10 @@ board.on("ready", function() {
       timeout('0m 0.5s')
         .then(function() {
           leds[4].stop().off();
+          timeout('0m 0.5s')
+            .then(function() {
+              leds[4].on();
+            })
         });
       break;
     default: 
