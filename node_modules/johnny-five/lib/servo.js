@@ -181,7 +181,7 @@ function Servo(opts) {
     },
     position: {
       get: function() {
-        return history[history.length - 1].degrees;
+        return history.length ? history[history.length - 1].degrees : -1;
       }
     }
   }));
@@ -285,6 +285,11 @@ Servo.prototype.to = function(degrees, time, rate) {
 
     } else {
       this.servoWrite(this.pin, degrees);
+
+      if (state.history.length > 5) {
+        state.history.shift();
+      }
+
       state.history.push({
         timestamp: Date.now(),
         degrees: degrees,
@@ -647,6 +652,7 @@ Servo.Collection = Servos;
 // TODO: Deprecate and REMOVE
 Servo.prototype.write = Servo.prototype.move;
 
+/* istanbul ignore else */
 if (IS_TEST_MODE) {
   Servo.purge = function() {
     priv.clear();

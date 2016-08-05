@@ -6,9 +6,10 @@ var ip            = require('ip');
 var io            = require('socket.io')();
 var fs            = require('fs');
 var request       = require('request');
-var mac           = require('getmac');
+//var mac           = require('getmac');
+var token         = '123456abcdefg1234567';
 
-var serialPort = new serialport.SerialPort("/dev/cu.usbserial-AL00TXWF", {
+var serialPort = new serialport.SerialPort("/dev/ttyUSB0", {
   baudrate: 57600
 });
 
@@ -21,25 +22,33 @@ function round(value, decimals) {
     return Number(Math.round(value+'e'+decimals)+'e-'+decimals);
 }
 
+// Send IP number
 fs.readFile('./device/device.json', 'utf8', (err, data) => {
-  var postData = {
-    name: data,
-    password: 'secret'
+  if (err) {
+    console.log('error');
+  } else {
+    var network_data = {"network": ip.address()};
+    fs.writeFile('./device/data.json', ip.address(), function() { });
+    request({
+      method: 'PATCH',
+      uri: 'https://things.opensource-design.nl/api/devices/' + data.replace(/(\r\n|\n|\r)/gm,"") + '?api_token=' + token,
+      agentOptions: {
+          securityOptions: 'SSL_OP_NO_SSLv3'
+      },
+      gzip: true,
+      json: network_data
+    })
+    .on('data', function(data) {
+      //console.log('data sent');
+    })
+    .on('error', function(error) {
+      //console.log('error sending data');
+    })
   }
-  var url = 'https://things.opensource-design.nl/api/auth/login'
-  var options = {
-    method: 'post',
-    body: postData,
-    json: true,
-    url: url
-  }
-  request(options, function (err, res, body) {
-    var headers = res.headers
-    var statusCode = res.statusCode
-    fs.writeFile('./device/data.json', res.body.token, function() { });
-  })
 });
+// end Send IP
 
+// Init Board and Johnny 5
 board.on("ready", function() {
 
   var leds          = new five.Leds([7, 8, 9, 10, 11]);
@@ -78,7 +87,7 @@ board.on("ready", function() {
       //console.log('vol down off');
       voldown_pin.low();
       break;
-    default: 
+    default:
        console.log('Other stuff happened');
        break;
     }
@@ -206,7 +215,7 @@ board.on("ready", function() {
             })
         });
       break;
-    default: 
+    default:
        console.log('Other stuff happened');
        break;
     }
@@ -240,6 +249,8 @@ board.on("ready", function() {
 
   timeout('0m 0s')
     .then(function() {
+      // Update IP
+      // end Update IP
       mute_pin.low();
       // Read initial setting
       fs.readFile('./device/active_relay.json', 'utf8', (err, data) => {
@@ -279,30 +290,48 @@ board.on("ready", function() {
       });
     });
 
-    interval('0m 5s')
+    interval('5m 0s')
       .execute(function() {
         // Update IP
+
         fs.readFile('./device/data.json', 'utf8', (err, data) => {
-          if (err) throw err;
-          mac.getMac(function(err, macAddress){
-            if (err)  throw err
-            var postData = {
-              ip: ip.address(),
-              mac: macAddress
+          if (err) {
+            console.log('error');
+          } else {
+            // Check if IP has changed
+            if (data == ip.address()) {
+              console.log('IP has not changed');
+            } else {
+              console.log('need to update ip');
+              // Update IP
+              fs.readFile('./device/device.json', 'utf8', (err, data) => {
+                if (err) {
+                  console.log('error');
+                } else {
+                  var network_data = {"network": ip.address()};
+                  fs.writeFile('./device/data.json', ip.address(), function() { });
+                  request({
+                    method: 'PATCH',
+                    uri: 'https://things.opensource-design.nl/api/devices/' + data.replace(/(\r\n|\n|\r)/gm,"") + '?api_token=' + token,
+                    agentOptions: {
+                        securityOptions: 'SSL_OP_NO_SSLv3'
+                    },
+                    gzip: true,
+                    json: network_data
+                  })
+                  .on('data', function(data) {
+                    //console.log('data sent');
+                  })
+                  .on('error', function(error) {
+                    //console.log('error sending data');
+                  })
+                }
+              });
+              // end Update IP
             }
-            var url = 'https://things.opensource-design.nl/api/devices?token=' + data;
-            var options = {
-              method: 'put',
-              body: postData,
-              json: true,
-              url: url
-            }
-            request(options, function (err, res, body) {
-              var headers = res.headers
-              var statusCode = res.statusCode
-            })
-          })
+          }
         });
+
       });
 
   io.listen(9080);

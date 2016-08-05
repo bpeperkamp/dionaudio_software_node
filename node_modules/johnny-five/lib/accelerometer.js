@@ -1,5 +1,7 @@
+var IS_TEST_MODE = !!process.env.IS_TEST_MODE;
 var Board = require("./board");
-var events = require("events");
+var Expander = require("./expander");
+var Emitter = require("events").EventEmitter;
 var util = require("util");
 var Fn = require("./fn");
 
@@ -10,19 +12,21 @@ var sum = Fn.sum;
 var toFixed = Fn.toFixed;
 
 var priv = new Map();
-var rad2deg = 180 / Math.PI;
 var calibrationSize = 10;
-var axes = ["x", "y", "z"];
+
+var aX = "x";
+var aY = "y";
+var aZ = "z";
+var axes = [aX, aY, aZ];
 
 function analogInitialize(opts, dataHandler) {
-  var pins = opts.pins || [],
-    state = priv.get(this),
-    dataPoints = {};
+  var state = priv.get(this);
+  var dataPoints = {};
 
   state.zeroV = opts.zeroV || this.DEFAULTS.zeroV;
   state.sensitivity = opts.sensitivity || this.DEFAULTS.sensitivity;
 
-  pins.forEach(function(pin, index) {
+  this.pins.forEach(function(pin, index) {
     this.io.pinMode(pin, this.io.MODES.ANALOG);
     this.io.analogRead(pin, function(data) {
       var axis = axes[index];
@@ -251,10 +255,11 @@ var Controllers = {
       value: function(opts, dataHandler) {
         var state = priv.get(this);
 
+        /* istanbul ignore else */
         if (opts.sleepPin !== undefined) {
           state.sleepPin = opts.sleepPin;
-          this.board.pinMode(state.sleepPin, 1);
-          this.board.digitalWrite(state.sleepPin, 1);
+          this.io.pinMode(state.sleepPin, 1);
+          this.io.digitalWrite(state.sleepPin, 1);
         }
 
         analogInitialize.call(this, opts, dataHandler);
@@ -267,8 +272,9 @@ var Controllers = {
       value: function(value) {
         var state = priv.get(this);
 
+        /* istanbul ignore else */
         if (state.sleepPin !== undefined) {
-          this.board.digitalWrite(state.sleepPin, value ? 1 : 0);
+          this.io.digitalWrite(state.sleepPin, value ? 1 : 0);
         }
       }
     }
@@ -514,6 +520,7 @@ var Controllers = {
         this.io.i2cRead(address, this.REGISTER.STATUS, 7, function(data) {
           var status = (data.shift() & 0x08) >>> 3;
 
+          /* istanbul ignore else */
           if (status) {
             // Page 9 (AN4076)
             //
@@ -530,14 +537,17 @@ var Controllers = {
           var status = data[0];
           var tap = status & 0x7F;
 
+          /* istanbul ignore else */
           if (status & 0x80) {
             this.emit("tap");
 
             // Single Tap
+            /* istanbul ignore else */
             if ((tap >> 2) & 0x01) {
               this.emit("tap:single");
 
               // Double Tap (must be both S and D bits)
+              /* istanbul ignore else */
               if ((tap >> 3) & 0x01) {
                 this.emit("tap:double");
               }
@@ -617,14 +627,238 @@ var Controllers = {
     },
     initialize: {
       value: function(opts, dataHandler) {
-        opts.pins = [5, 11, 6];
+        this.pins = [5, 11, 6];
         analogInitialize.call(this, opts, dataHandler);
       }
     },
     toGravity: {
       value: analogToGravity
     }
-  }
+  },
+
+  // https://cdn-shop.adafruit.com/datasheets/LIS3DHappnote.pdf
+  LIS3DH: {
+    ADDRESSES: {
+      value: [0x18]
+    },
+    REGISTER: {
+      value: {
+        OUT_X_L: 0x28,
+        CTRL_REG1: 0x20,
+        CTRL_REG2: 0x21,
+        CTRL_REG3: 0x22,
+        CTRL_REG4: 0x23,
+        CTRL_REG5: 0x24,
+
+        TEMP_CFG_REG: 0x1F,
+
+        CLICK_CFG: 0x38,
+        CLICK_SRC: 0x39,
+        CLICK_THS: 0x3A,
+        TIME_LIMIT: 0x3B,
+        TIME_LATENCY: 0x3C,
+        TIME_WINDOW: 0x3D,
+      }
+    },
+    initialize: {
+      value: function(opts, dataHandler) {
+        var state = priv.get(this);
+        var address = opts.address || 0x18;
+
+        // 2G  = 0b00
+        // 4G  = 0b01
+        // 8G  = 0b10
+        // 16G = 0b11
+        var range = ({
+          2: 0,
+          4: 1,
+          8: 2,
+          16: 3
+        })[opts.range || 4];
+
+        /* istanbul ignore if */
+        if (range === undefined) {
+          range = 1;
+        }
+
+        var divider = [
+          16380,
+          8190,
+          4096,
+          1365,
+        ][range];
+
+        /* istanbul ignore if */
+        if (divider === undefined) {
+          divider = 1;
+        }
+
+        var threshold = [
+          80,
+          40,
+          20,
+          10,
+        ][range];
+
+        /* istanbul ignore if */
+        if (threshold === undefined) {
+          threshold = 10;
+        }
+
+
+        state.divider = divider;
+        state.expander = Expander.get({
+          address: address,
+          controller: this.controller,
+          bus: this.bus,
+        });
+
+        // TODO: this should come from the expander
+        var ctrl4 = 0x88 | (range << 4);
+
+        state.expander.i2cWrite(address, this.REGISTER.CTRL_REG4, ctrl4);
+
+        // Acceleration
+        state.expander.i2cReadOnce(address, this.REGISTER.CTRL_REG1, 1, function(data) {
+          var ctrl1 = data[0];
+
+          // Set to 200Hz
+          ctrl1 &= ~0xF0;
+          ctrl1 |= 6 << 4;
+
+          state.expander.i2cWrite(address, this.REGISTER.CTRL_REG1, ctrl1);
+
+          // Page 21
+          // 6.1.1 I2C operation
+          // Autoincrement bit set on register (0x80)
+          state.expander.i2cRead(address, this.REGISTER.OUT_X_L | 0x80, 6, function(data) {
+            dataHandler({
+              x: Fn.int16(data[1], data[0]),
+              y: Fn.int16(data[3], data[2]),
+              z: Fn.int16(data[5], data[4]),
+            });
+          });
+
+
+          // Tap
+          // TODO: make this optional (use "newListener"?)
+          //
+          // See MMA8452 driver for strategy
+          //
+          // state.expander.i2cReadOnce(address, this.REGISTER.CTRL_REG3, 1, function(data) {
+          //   var ctrl3 = data[0];
+
+          //   // Shut off Int 1 Click
+          //   ctrl3 &= ~0x80;
+          //   ctrl3 |= 6 << 4;
+
+          //   state.expander.i2cWrite(address, this.REGISTER.CTRL_REG1, ctrl3);
+
+          //   // Page 21
+          //   // 6.1.1 I2C operation
+          //   // Autoincrement bit set on register (0x80)
+          //   state.expander.i2cRead(address, this.REGISTER.OUT_X_L | 0x80, 6, function(data) {
+          //     dataHandler({
+          //       x: Fn.int16(data[1], data[0]),
+          //       y: Fn.int16(data[3], data[2]),
+          //       z: Fn.int16(data[5], data[4]),
+          //     });
+          //   });
+          // }.bind(this));
+
+
+
+          // Page 35
+          // 8.3.7 CTRL_REG3 [Interrupt CTRL register] (22h)
+          state.expander.i2cWrite(address, this.REGISTER.CTRL_REG3, 0x80);
+
+          // Page 40
+          // 9.2.1 Control register 5 (0x24)
+          state.expander.i2cWrite(address, this.REGISTER.CTRL_REG5, 0x08);
+
+          // Page 32
+          // 8.3.1 TAP_CFG
+          //
+          // This register is called both CLICK_CFG and TAP_CFG
+          //
+          // 0b00101010  = 0x2A = 42
+          state.expander.i2cWrite(address, this.REGISTER.CLICK_CFG, 0x2A);
+
+          // Page 36
+          // 8.4.1 Playing with TAP_TimeLimit
+          //
+          // ...Offers some guidance. Ultimately I opted to take inspiration
+          // from Adafruit's driver and example:
+          //
+          // Times in ms
+          // var timelimit = 10;
+          // var timelatency = 20;
+          // var timewindow = 255;
+          var timelimit = 10;
+          var timelatency = 20;
+          var timewindow = 255;
+
+          state.expander.i2cWrite(address, this.REGISTER.CLICK_THS, threshold);
+          state.expander.i2cWrite(address, this.REGISTER.TIME_LIMIT, timelimit);
+          state.expander.i2cWrite(address, this.REGISTER.TIME_LATENCY, timelatency);
+          state.expander.i2cWrite(address, this.REGISTER.TIME_WINDOW, timewindow);
+
+          // Page 33
+          // 8.3.2 TAP_SRC (39h)
+          //
+          // This register is called both CLICK_SRC and TAP_SRC
+          //
+
+          var lastEmitTime = null;
+
+          state.expander.i2cRead(address, this.REGISTER.CLICK_SRC, 1, function(data) {
+            var status = data[0];
+            var thisEmitTime = Date.now();
+            // var tap = status & 0x7F;
+
+            if (lastEmitTime === null) {
+              lastEmitTime = thisEmitTime - 101;
+            }
+
+            /* istanbul ignore if */
+            if (thisEmitTime < (lastEmitTime + 100)) {
+              return;
+            }
+
+            if (status === 0x00) {
+              return;
+            }
+
+            /* istanbul ignore if */
+            if (!(status & 0x30)) {
+              return;
+            }
+
+            lastEmitTime = thisEmitTime;
+
+            this.emit("tap");
+
+            if (status & 0x10) {
+              this.emit("tap:single");
+            }
+
+            if (status & 0x20) {
+              // TODO: Figure out if we can determine a
+              // combined single + double tap
+              this.emit("tap:single");
+              this.emit("tap:double");
+            }
+          }.bind(this));
+        }.bind(this));
+      },
+    },
+    toGravity: {
+      value: function(raw) {
+        var state = priv.get(this);
+        return raw / state.divider;
+      },
+    },
+  },
 };
 
 // Otherwise known as...
@@ -725,6 +959,7 @@ function Accelerometer(opts) {
 
   priv.set(this, state);
 
+  /* istanbul ignore else */
   if (typeof this.initialize === "function") {
     this.initialize(opts, function(data) {
       var isChange = false;
@@ -746,7 +981,7 @@ function Accelerometer(opts) {
           }
 
           state.zeroV[axisIndex] = sum(sensor.calibration) / sensor.calibration.length;
-          if (axis === "z") {
+          if (axis === aZ) {
             state.zeroV[axisIndex] -= state.sensitivity;
           }
         }
@@ -802,7 +1037,9 @@ function Accelerometer(opts) {
 
   Object.defineProperties(this, {
     hasAxis: {
+      writable: IS_TEST_MODE ? true : /* istanbul ignore next */ false,
       value: function(axis) {
+        /* istanbul ignore next */
         return state[axis] ? state[axis].stash.length > 0 : false;
       }
     },
@@ -832,18 +1069,14 @@ function Accelerometer(opts) {
      */
     pitch: {
       get: function() {
-        var x, y, z, rads;
-
-        x = this.x;
-        y = this.y;
-        z = this.z;
-
-
-        rads = this.hasAxis("z") ?
+        var x = this.x;
+        var y = this.y;
+        var z = this.z;
+        var rads = this.hasAxis(aZ) ?
           Math.atan2(x, Math.hypot(y, z)) :
           Math.asin(constrain(x, -1, 1));
 
-        return toFixed(rads * rad2deg, 2);
+        return toFixed(rads * Fn.RAD_TO_DEG, 2);
       }
     },
     /**
@@ -853,33 +1086,30 @@ function Accelerometer(opts) {
      */
     roll: {
       get: function() {
-        var x, y, z, rads;
-
-        x = this.x;
-        y = this.y;
-        z = this.z;
-
-        rads = this.hasAxis("z") ?
+        var x = this.x;
+        var y = this.y;
+        var z = this.z;
+        var rads = this.hasAxis(aZ) ?
           Math.atan2(y, Math.hypot(x, z)) :
           Math.asin(constrain(y, -1, 1));
 
-        return toFixed(rads * rad2deg, 2);
+        return toFixed(rads * Fn.RAD_TO_DEG, 2);
       }
     },
     x: {
       get: function() {
-        return toFixed(this.toGravity(state.x.value, "x"), 2);
+        return toFixed(this.toGravity(state.x.value, aX), 2);
       }
     },
     y: {
       get: function() {
-        return toFixed(this.toGravity(state.y.value, "y"), 2);
+        return toFixed(this.toGravity(state.y.value, aY), 2);
       }
     },
     z: {
       get: function() {
-        return this.hasAxis("z") ?
-          toFixed(this.toGravity(state.z.value, "z"), 2) : 0;
+        return this.hasAxis(aZ) ?
+          toFixed(this.toGravity(state.z.value, aZ), 2) : 0;
       }
     },
     acceleration: {
@@ -893,7 +1123,7 @@ function Accelerometer(opts) {
     },
     inclination: {
       get: function() {
-        return Math.atan2(this.y, this.x) * rad2deg;
+        return Math.atan2(this.y, this.x) * Fn.RAD_TO_DEG;
       }
     },
     orientation: {
@@ -901,27 +1131,30 @@ function Accelerometer(opts) {
         var abs = Math.abs;
         var x = this.x;
         var y = this.y;
-        var z = this.hasAxis(z) ? this.z : 1;
-        var xAbs = abs(x);
-        var yAbs = abs(y);
-        var zAbs = abs(z);
+        var z = this.hasAxis(aZ) ? this.z : 1;
+        var absX = abs(x);
+        var absY = abs(y);
+        var absZ = abs(z);
 
-        if (xAbs < yAbs && xAbs < zAbs) {
+        if (absX < absY && absX < absZ) {
           if (x > 0) {
             return 1;
           }
           return -1;
         }
-        if (yAbs < xAbs && yAbs < zAbs) {
+        if (absY < absX && absY < absZ) {
           if (y > 0) {
             return 2;
           }
           return -2;
         }
-        if (zAbs < xAbs && zAbs < yAbs) {
+        if (absZ < absX && absZ < absY) {
+          // TODO: figure out how to test this
+          /* istanbul ignore else */
           if (z > 0) {
             return 3;
           }
+          /* istanbul ignore next */
           return -3;
         }
         return 0;
@@ -930,7 +1163,14 @@ function Accelerometer(opts) {
   });
 }
 
+util.inherits(Accelerometer, Emitter);
 
-util.inherits(Accelerometer, events.EventEmitter);
+/* istanbul ignore else */
+if (IS_TEST_MODE) {
+  Accelerometer.purge = function() {
+    priv.clear();
+  };
+}
+
 
 module.exports = Accelerometer;

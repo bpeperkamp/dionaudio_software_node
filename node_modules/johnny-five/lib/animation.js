@@ -4,37 +4,12 @@
 
 // Create jquery FX like queue
 
-var ease = require("ease-component"),
-  Emitter = require("events").EventEmitter,
-  util = require("util"),
-  __ = require("./fn"),
-  temporal;
+var Emitter = require("events").EventEmitter;
+var util = require("util");
+var ease = require("ease-component");
+var Fn = require("./fn");
+var temporal;
 
-/**
- * Every property ever used on an animation segment
- * MUST be listed here, otherwise properties will
- * persist across segments. This default object is
- * primarily for resetting state.
- */
- Animation.DEFAULTS = {
-  cuePoints: [0, 1],
-  duration: 1000,
-  easing: "linear",
-  loop: false,
-  loopback: 0,
-  metronomic: false,
-  currentSpeed: 1,
-  progress: 0,
-  fps: 60,
-  rate: 1000 / 60,
-  paused: false,
-  segments: [],
-  onstart: null,
-  onpause: null,
-  onstop: null,
-  oncomplete: null,
-  onloop: null
-};
 
 /**
  * The max time we want to allow a temporal animation segment to run.
@@ -47,6 +22,7 @@ var temporalTTL = 5000;
 /**
  * Placeholders for Symbol
  */
+Animation.keys = "@@keys";
 Animation.normalize = "@@normalize";
 Animation.render = "@@render";
 
@@ -54,15 +30,15 @@ Animation.render = "@@render";
  * Temporal will run up the CPU. temporalFallback is used
  * for long running animations.
  */
-function TemporalFallback(animation) {
+Animation.TemporalFallback = function(animation) {
   this.interval = setInterval(function() {
     animation.loopFunction({
       calledAt: Date.now()
     });
   }, animation.rate);
-}
+};
 
-TemporalFallback.prototype.stop = function() {
+Animation.TemporalFallback.prototype.stop = function() {
   if (this.interval) {
     clearInterval(this.interval);
   }
@@ -113,13 +89,52 @@ function Animation(target) {
     return new Animation(target);
   }
 
+  Animation.Segment.call(this);
+
   this.defaultTarget = target;
-
-  Object.assign(this, Animation.DEFAULTS);
-
 }
 
 util.inherits(Animation, Emitter);
+
+/**
+ * Animation.Segment()
+ *
+ * Create a defaulted segment.
+ *
+ * Every property ever used on an animation segment
+ * MUST be listed here, otherwise properties will
+ * persist across segments. This default object is
+ * primarily for resetting state.
+ *
+ */
+Animation.Segment = function(options) {
+  this.cuePoints = [0, 1];
+  this.duration = 1000;
+  this.easing = "linear";
+  this.loop = false;
+  this.loopback = 0;
+  this.metronomic = false;
+  this.currentSpeed = 1;
+  this.progress = 0;
+  this.fps = 60;
+  this.rate = 1000 / 60;
+  this.paused = false;
+  this.segments = [];
+  this.onstart = null;
+  this.onpause = null;
+  this.onstop = null;
+  this.oncomplete = null;
+  this.onloop = null;
+
+  if (options) {
+    Object.assign(this, options);
+
+    if (options.segments) {
+      this.segments = options.segments.slice();
+    }
+  }
+};
+
 
 /**
  * Add an animation segment to the animation queue
@@ -129,13 +144,17 @@ util.inherits(Animation, Emitter);
  */
 Animation.prototype.enqueue = function(opts) {
 
+  opts = opts || {};
+
+  /* istanbul ignore else */
   if (typeof opts.target === "undefined") {
     opts.target = this.defaultTarget;
   }
 
-  opts = Object.assign({}, Animation.DEFAULTS, opts);
-  this.segments.push(opts);
+  this.segments.push(new Animation.Segment(opts));
 
+
+  /* istanbul ignore if */
   if (!this.paused) {
     this.next();
   }
@@ -175,6 +194,7 @@ Animation.prototype.next = function() {
     this.playLoop.stop();
   }
 
+  return this;
 };
 
 /**
@@ -259,14 +279,12 @@ Animation.prototype.loopFunction = function(loop) {
   // Find the current timeline progress
   var progress = this.calculateProgress(loop.calledAt);
 
+
   // Find the left and right cuePoints/keyFrames;
   var indices = this.findIndices(progress);
 
-  // Get tweened value
-  var val = this.tweenedValue(indices, progress);
-
-  // call render function
-  this.target[Animation.render](val);
+  // call render function with tweened value
+  this.target[Animation.render](this.tweenedValue(indices, progress));
 
   /**
    * If this animation has been running in temporal for too long
@@ -277,11 +295,12 @@ Animation.prototype.loopFunction = function(loop) {
     if (this.playLoop) {
       this.playLoop.stop();
     }
-    this.playLoop = new TemporalFallback(this);
+    this.playLoop = new Animation.TemporalFallback(this);
   }
 
   // See if we have reached the end of the animation
-  if ((progress === 1 && !this.reverse) || (progress === this.loopback && this.reverse)) {
+  /* istanbul ignore else */
+  if ((this.progress === 1 && !this.reverse) || (progress === this.loopback && this.reverse)) {
 
     if (this.loop || (this.metronomic && !this.reverse)) {
 
@@ -294,11 +313,9 @@ Animation.prototype.loopFunction = function(loop) {
       }
 
       this.normalizeKeyframes();
-
       this.progress = this.loopback;
       this.startTime = Date.now() - this.scaledDuration * this.progress;
       this.endTime = this.startTime + this.scaledDuration;
-
     } else {
 
       this.stop();
@@ -310,7 +327,6 @@ Animation.prototype.loopFunction = function(loop) {
       if (this.segments.length > 0) {
         this.next();
       }
-
     }
   }
 };
@@ -322,7 +338,6 @@ Animation.prototype.loopFunction = function(loop) {
  */
 
 Animation.prototype.play = function() {
-
   var now = Date.now();
 
   if (this.playLoop) {
@@ -340,6 +355,7 @@ Animation.prototype.play = function() {
   this.fallBackTime = now + temporalTTL;
   this.frameCount = 0;
 
+  /* istanbul ignore else */
   if (this.fps) {
     this.rate = 1000 / this.fps;
   }
@@ -347,7 +363,6 @@ Animation.prototype.play = function() {
   this.rate = this.rate | 0;
 
   this.playLoop = temporal.loop(this.rate, this.loopFunction.bind(this));
-
 };
 
 Animation.prototype.findIndices = function(progress) {
@@ -361,7 +376,7 @@ Animation.prototype.findIndices = function(progress) {
     return point >= progress;
   });
 
-  indices.left = indices.right === 0 ? 0 : indices.right - 1;
+  indices.left = indices.right === 0 ? /* istanbul ignore next */ 0 : indices.right - 1;
 
   return indices;
 };
@@ -383,7 +398,7 @@ Animation.prototype.calculateProgress = function(calledAt) {
   // Ease the timeline
   // to do: When reverse replace inFoo with outFoo and vice versa. skip inOutFoo
   progress = ease[this.easing](progress);
-  progress = __.constrain(progress, 0, 1);
+  progress = Fn.constrain(progress, 0, 1);
 
   return progress;
 };
@@ -405,6 +420,7 @@ Animation.prototype.tweenedValue = function(indices, progress) {
 
     // If the keyframe at indices.left is null, move left
     for (memberIndices.left = indices.left; memberIndices.left > -1; memberIndices.left--) {
+      /* istanbul ignore else */
       if (keyFrame[memberIndices.left] !== null) {
         break;
       }
@@ -421,6 +437,7 @@ Animation.prototype.tweenedValue = function(indices, progress) {
 
     // Catch divide by zero
     if (!Number.isFinite(tween.progress)) {
+      /* istanbul ignore next */
       tween.progress = this.reverse ? 0 : 1;
     }
 
@@ -441,12 +458,17 @@ Animation.prototype.tweenedValue = function(indices, progress) {
           tween.progress + left.position[index];
       });
     } else {
-      calcValue = (right.value - left.value) *
-        tween.progress + left.value;
+      if (typeof right.value === "number" && typeof left.value === "number") {
+        calcValue = (right.value - left.value) * tween.progress + left.value;
+      } else {
+        calcValue = this.target[Animation.keys].reduce(function(accum, key) {
+          accum[key] = (right.value[key] - left.value[key]) * tween.progress + left.value[key];
+          return accum;
+        }, {});
+      }
     }
 
     return calcValue;
-
   }, this);
 
   return result;
@@ -456,7 +478,7 @@ Animation.prototype.tweenedValue = function(indices, progress) {
 Animation.prototype.normalizeKeyframes = function() {
 
   var previousVal,
-    keyFrameSet = __.cloneDeep(this.keyFrames),
+    keyFrameSet = Fn.cloneDeep(this.keyFrames),
     cuePoints = this.cuePoints;
 
   // Run through the target's normalization
@@ -500,11 +522,13 @@ Animation.prototype.normalizeKeyframes = function() {
         }
 
         // Copy value from another frame
+        /* istanbul ignore if */
         if (typeof keyFrame.copyValue !== "undefined") {
           keyFrame.value = source[keyFrame.copyValue].value;
         }
 
         // Copy everything from another keyframe in this array
+        /* istanbul ignore if */
         if (keyFrame.copyFrame) {
           keyFrame = source[keyFrame.copyFrame];
         }

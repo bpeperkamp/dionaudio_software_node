@@ -1,5 +1,6 @@
 node_modules/
 assets/
+coverage/
 docs/
 eg/
 test/
@@ -26,5 +27,6 @@ colors.js
 .jshintrc
 .jscsrc
 .gitignore
+.istanbul.yml
 appveyor.yml
 LICENSE-MIT

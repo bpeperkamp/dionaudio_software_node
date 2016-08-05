@@ -11,21 +11,25 @@ var Fn = {
 // Return float
 //
 Fn.toFixed = function(number, digits) {
-  return +(number).toFixed(digits);
+  // Guard against error when number is null or undefined
+  return +(number || 0).toFixed(digits);
 };
-
 
 // Fn.fmap( val, fromLow, fromHigh, toLow, toHigh )
 //
 // Re-maps a number from one range to another.
 // Based on arduino map()
 //
-// Return float
+// Return Float32
 //
+var f32A = new Float32Array(1);
+
 Fn.fmap = function(value, fromLow, fromHigh, toLow, toHigh) {
-  return (value - fromLow) * (toHigh - toLow) /
-    (fromHigh - fromLow) + toLow;
+  f32A[0] = (value - fromLow) * (toHigh - toLow) / (fromHigh - fromLow) + toLow;
+  return f32A[0];
 };
+
+
 
 // Alias
 Fn.fscale = Fn.fmap;
@@ -38,7 +42,7 @@ Fn.fscale = Fn.fmap;
 // Retun int
 //
 Fn.map = function(value, fromLow, fromHigh, toLow, toHigh) {
-  return Fn.fmap(value, fromLow, fromHigh, toLow, toHigh) | 0;
+  return ((value - fromLow) * (toHigh - toLow) / (fromHigh - fromLow) + toLow) | 0;
 };
 
 // Alias
@@ -217,57 +221,112 @@ Fn._BV = Fn.bitValue = Fn.bv = function(bit) {
 */
 
 
-// Fn.int16(high, low)
+/**
+ * int16 Combine two bytes to make an signed 16-bit integer
+ * @param  {byte} msb   Most signifcant byte
+ * @param  {byte} lsb   Least signifcant byte
+ * @return {word}       Signed 16-bit integer
+ */
+Fn.int16 = function(msb, lsb) {
+  var result = (msb << 8) | lsb;
 
-Fn.int16 = function(high, low) {
-  var result = (high << 8) | low;
-
-  // if highest bit is on, it is negative
+  // Check highest bit for sign. If on, value is negative
   return result >> 15 ? ((result ^ 0xFFFF) + 1) * -1 : result;
 };
 
-Fn.uint16 = function(high, low) {
-  return (high << 8) | low;
+/**
+ * uint16 Combine two bytes to make an unsigned 16-bit integer
+ * @param  {byte} msb   Most signifcant byte
+ * @param  {byte} lsb   Least signifcant byte
+ * @return {word}       Signed 16-bit integer
+ */
+Fn.uint16 = function(msb, lsb) {
+  return (msb << 8) | lsb;
 };
 
-Fn.int24 = function(high, low, xlow) {
-  var result = (high << 16) | (low << 8) | xlow;
+/**
+ * int24 Combine three bytes to make a signed 24-bit integer
+ * @param  {byte} b16   b[16:23]
+ * @param  {byte} b8    b[8:15]
+ * @param  {byte} b0    b[0:7]
+ * @return {word}       Signed 24-bit integer
+ */
+Fn.int24 = function(b16, b8, b0) {
+  var result = (b16 << 16) | (b8 << 8) | b0;
 
-  // if highest bit is on, it is negative
+  // Check highest bit for sign. If on, value is negative
   return result >> 23 ? ((result ^ 0xFFFFFF) + 1) * -1 : result;
 };
 
-Fn.uint24 = function(high, low, xlow) {
-  return (high << 16) | (low << 8) | xlow;
+/**
+ * uint24 Combine three bytes to make an unsigned 24-bit integer
+ * @param  {byte} b16   b[16:23]
+ * @param  {byte} b8    b[8:15]
+ * @param  {byte} b0    b[0:7]
+ * @return {word}       Unsigned 24-bit integer
+ */
+Fn.uint24 = function(b16, b8, b0) {
+  return (b16 << 16) | (b8 << 8) | b0;
 };
 
+/**
+ * int32 Combine four bytes to make a signed 24-bit integer
+ * @param  {byte} b24   b[24:31]
+ * @param  {byte} b16   b[16:23]
+ * @param  {byte} b8    b[8:15]
+ * @param  {byte} b0    b[0:7]
+ * @return {word}       Signed 32-bit integer
+ */
+Fn.int32 = function(b24, b16, b8, b0) {
+  var result = (b24 << 24) | (b16 << 16) | (b8 << 8) | b0;
 
-Fn.bitsIn = function(n) {
+  // Check highest bit for sign. If on, value is negative
+  return result >> 31 ? ((result ^ 0xFFFFFFFF) + 1) * -1 : result;
+};
+
+/**
+ * int32 Combine four bytes to make a signed 24-bit integer
+ * @param  {byte} b24   b[24:31]
+ * @param  {byte} b16   b[16:23]
+ * @param  {byte} b8    b[8:15]
+ * @param  {byte} b0    b[0:7]
+ * @return {word}       Signed 32-bit integer
+ */
+Fn.uint32 = function(b24, b16, b8, b0) {
+  return (b24 << 24) | (b16 << 16) | (b8 << 8) | b0;
+};
+
+/**
+ * bitSize Get the number of bits in a given number
+ * @param  {number} n   The number to evaluate
+ * @return {number}     The bit count
+ */
+Fn.bitSize = function(n) {
   return Math.round(Math.log2(n));
 };
 
 var POW = "POW_2_";
 var U = "u";
 var S = "s";
-var MAX = Fn.bitsIn(Number.MAX_SAFE_INTEGER) + 1;
+var MAX = Fn.bitSize(Number.MAX_SAFE_INTEGER) + 1;
 
 for (var i = 0; i < MAX; i++) {
   Fn[POW + i] = Math.pow(2, i);
 }
 
-[ 4, 8, 10, 12, 16, 20, 24, 32 ].forEach(function(bits) {
-  var decimal = Fn[POW + bits];
+[ 4, 8, 10, 12, 16, 20, 24, 32 ].forEach(function(bitSize) {
+  var decimal = Fn[POW + bitSize];
   var half = decimal / 2 >>> 0;
   var halfMinusOne = half - 1;
 
-  Fn[U + bits] = function(value) {
+  Fn[U + bitSize] = function(value) {
     if (value < 0) {
       value += decimal;
     }
     return Fn.constrain(value, 0, decimal);
   };
 
-  Fn[S + bits] = function(value) {
+  Fn[S + bitSize] = function(value) {
     if (value > halfMinusOne) {
       value -= decimal;
     }
@@ -359,5 +418,6 @@ for (var i = 0; i < MAX; i++) {
 
 Fn.RAD_TO_DEG = 180 / Math.PI;
 Fn.DEG_TO_RAD = Math.PI / 180;
+Fn.TAU = 2 * Math.PI;
 
 module.exports = Fn;

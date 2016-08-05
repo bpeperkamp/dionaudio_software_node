@@ -61,7 +61,7 @@ _Artwork by [Mike Sgier](http://msgierillustration.com)_
 
 [![Travis Build Status](https://travis-ci.org/rwaldron/johnny-five.svg?branch=master)](https://travis-ci.org/rwaldron/johnny-five)
 [![Appveyor Build Status](https://ci.appveyor.com/api/projects/status/hmke71k7uemtnami/branch/master?svg=true)](https://ci.appveyor.com/project/rwaldron/johnny-five)
-[![Gitter](https://badges.gitter.im/Join Chat.svg)](https://gitter.im/rwaldron/johnny-five?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+[![Gitter](https://img.shields.io/gitter/room/nwjs/nw.js.svg)](https://gitter.im/rwaldron/johnny-five?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 
 
@@ -340,6 +340,7 @@ To interactively navigate the examples, visit the [Johnny-Five examples](http://
 - [Joystick - Sparkfun Shield](https://github.com/rwaldron/johnny-five/blob/master/docs/joystick-shield.md)
 
 ### LCD
+- [Grove - RGB LCD Color Previewer](https://github.com/rwaldron/johnny-five/blob/master/docs/lcd-rgb-bgcolor-previewer.md)
 - [LCD](https://github.com/rwaldron/johnny-five/blob/master/docs/lcd.md)
 - [LCD - Enumerate characters](https://github.com/rwaldron/johnny-five/blob/master/docs/lcd-enumeratechars.md)
 - [LCD - I2C](https://github.com/rwaldron/johnny-five/blob/master/docs/lcd-i2c.md)
@@ -348,7 +349,8 @@ To interactively navigate the examples, visit the [Johnny-Five examples](http://
 - [LCD - Runner 16x2](https://github.com/rwaldron/johnny-five/blob/master/docs/lcd-runner.md)
 - [LCD - Runner 20x4](https://github.com/rwaldron/johnny-five/blob/master/docs/lcd-runner-20x4.md)
 - [LCD - Tessel 2 16x2](https://github.com/rwaldron/johnny-five/blob/master/docs/lcd-16x2-tessel.md)
-- [LCD - Tessel 2 16x2 Runner](https://github.com/rwaldron/johnny-five/blob/master/docs/lcd-16x2-tessel-runner.md)
+- [Tessel 2 + Grove - RGB LCD Color Previewer](https://github.com/rwaldron/johnny-five/blob/master/docs/lcd-rgb-bgcolor-previewer-tessel.md)
+- [Tessel 2 + Grove - RGB LCD Display](https://github.com/rwaldron/johnny-five/blob/master/docs/lcd-rgb-tessel-grove-JHD1313M1.md)
 
 ### Compass/Magnetometer
 - [Compass - Find north](https://github.com/rwaldron/johnny-five/blob/master/docs/magnetometer-north.md)
@@ -381,6 +383,7 @@ To interactively navigate the examples, visit the [Johnny-Five examples](http://
 - [Accelerometer](https://github.com/rwaldron/johnny-five/blob/master/docs/accelerometer.md)
 - [Accelerometer - ADXL335](https://github.com/rwaldron/johnny-five/blob/master/docs/accelerometer-adxl335.md)
 - [Accelerometer - ADXL345](https://github.com/rwaldron/johnny-five/blob/master/docs/accelerometer-adxl345.md)
+- [Accelerometer - LIS3DH](https://github.com/rwaldron/johnny-five/blob/master/docs/accelerometer-LIS3DH.md)
 - [Accelerometer - MMA7361](https://github.com/rwaldron/johnny-five/blob/master/docs/accelerometer-mma7361.md)
 - [Accelerometer - MMA8452](https://github.com/rwaldron/johnny-five/blob/master/docs/accelerometer-MMA8452.md)
 - [Accelerometer - MPU6050](https://github.com/rwaldron/johnny-five/blob/master/docs/accelerometer-mpu6050.md)
@@ -429,6 +432,7 @@ To interactively navigate the examples, visit the [Johnny-Five examples](http://
 ### Expander
 - [Expander - 74HC595](https://github.com/rwaldron/johnny-five/blob/master/docs/expander-74HC595.md)
 - [Expander - CD74HC4067, 16 Channel Analog Input Breakout](https://github.com/rwaldron/johnny-five/blob/master/docs/expander-CD74HC4067_NANO_BACKPACK.md)
+- [Expander - LIS3DH](https://github.com/rwaldron/johnny-five/blob/master/docs/expander-LIS3DH.md)
 - [Expander - MCP23008](https://github.com/rwaldron/johnny-five/blob/master/docs/expander-MCP23008.md)
 - [Expander - MCP23017](https://github.com/rwaldron/johnny-five/blob/master/docs/expander-MCP23017.md)
 - [Expander - MUXSHIELD2, Analog Sensors](https://github.com/rwaldron/johnny-five/blob/master/docs/expander-MUXSHIELD2-analog-read.md)
@@ -468,12 +472,13 @@ To interactively navigate the examples, visit the [Johnny-Five examples](http://
 - [Intel Edison + Grove - Humidity & Temperature (TH02)](https://github.com/rwaldron/johnny-five/blob/master/docs/grove-humidity-temperature-edison.md)
 - [Intel Edison + Grove - I2C Motor Driver](https://github.com/rwaldron/johnny-five/blob/master/docs/grove-i2c-motor-driver-edison.md)
 - [Intel Edison + Grove - Joystick](https://github.com/rwaldron/johnny-five/blob/master/docs/grove-joystick-edison.md)
-- [Intel Edison + Grove - LCD RGB temperature display](https://github.com/rwaldron/johnny-five/blob/master/docs/grove-lcd-rgb-temperature-display-edison.md)
 - [Intel Edison + Grove - LED](https://github.com/rwaldron/johnny-five/blob/master/docs/grove-led-edison.md)
 - [Intel Edison + Grove - Light Sensor (TSL2561)](https://github.com/rwaldron/johnny-five/blob/master/docs/grove-light-sensor-edison.md)
 - [Intel Edison + Grove - Moisture Sensor](https://github.com/rwaldron/johnny-five/blob/master/docs/grove-moisture-edison.md)
 - [Intel Edison + Grove - Q Touch](https://github.com/rwaldron/johnny-five/blob/master/docs/grove-q-touch.md)
 - [Intel Edison + Grove - RGB LCD](https://github.com/rwaldron/johnny-five/blob/master/docs/grove-lcd-rgb-edison.md)
+- [Intel Edison + Grove - RGB LCD Color Previewer](https://github.com/rwaldron/johnny-five/blob/master/docs/grove-lcd-rgb-bgcolor-previewer-edison.md)
+- [Intel Edison + Grove - RGB LCD temperature display](https://github.com/rwaldron/johnny-five/blob/master/docs/grove-lcd-rgb-temperature-display-edison.md)
 - [Intel Edison + Grove - Relay](https://github.com/rwaldron/johnny-five/blob/master/docs/grove-relay-edison.md)
 - [Intel Edison + Grove - Rotary Potentiometer](https://github.com/rwaldron/johnny-five/blob/master/docs/grove-rotary-potentiometer-edison.md)
 - [Intel Edison + Grove - Servo](https://github.com/rwaldron/johnny-five/blob/master/docs/grove-servo-edison.md)
@@ -482,10 +487,10 @@ To interactively navigate the examples, visit the [Johnny-Five examples](http://
 ### Grove IoT Kit (Seeed Studio)
 - [Grove - Button](https://github.com/rwaldron/johnny-five/blob/master/docs/grove-button.md)
 - [Grove - Joystick](https://github.com/rwaldron/johnny-five/blob/master/docs/grove-joystick.md)
-- [Grove - LCD RGB temperature display](https://github.com/rwaldron/johnny-five/blob/master/docs/grove-lcd-rgb-temperature-display.md)
 - [Grove - LED](https://github.com/rwaldron/johnny-five/blob/master/docs/grove-led.md)
 - [Grove - Motor (I2C Driver)](https://github.com/rwaldron/johnny-five/blob/master/docs/grove-i2c-motor-driver.md)
 - [Grove - RGB LCD](https://github.com/rwaldron/johnny-five/blob/master/docs/grove-lcd-rgb.md)
+- [Grove - RGB LCD temperature display](https://github.com/rwaldron/johnny-five/blob/master/docs/grove-lcd-rgb-temperature-display.md)
 - [Grove - Rotary Potentiometer](https://github.com/rwaldron/johnny-five/blob/master/docs/grove-rotary-potentiometer.md)
 - [Grove - Servo](https://github.com/rwaldron/johnny-five/blob/master/docs/grove-servo.md)
 - [Grove - Touch](https://github.com/rwaldron/johnny-five/blob/master/docs/grove-touch.md)
