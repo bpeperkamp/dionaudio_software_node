@@ -44,11 +44,11 @@ board.on("ready", function() {
 
   var leds          = new five.Leds([7, 8, 9, 10, 11]);
 
-  var relay1        = new five.Relay({pin: 2, type: 'NO'});
-  var relay2        = new five.Relay({pin: 3, type: 'NO'});
-  var relay3        = new five.Relay({pin: 4, type: 'NO'});
-  var relay4        = new five.Relay({pin: 5, type: 'NO'});
-  var relay5        = new five.Relay({pin: 6, type: 'NO'});
+  var relay1        = new five.Relay({pin: 2, type: 'NC'});
+  var relay2        = new five.Relay({pin: 3, type: 'NC'});
+  var relay3        = new five.Relay({pin: 4, type: 'NC'});
+  var relay4        = new five.Relay({pin: 5, type: 'NC'});
+  var relay5        = new five.Relay({pin: 6, type: 'NC'});
 
   var volup_pin     = new five.Pin(16);
   var voldown_pin   = new five.Pin(17);
