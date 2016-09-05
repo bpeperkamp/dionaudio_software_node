@@ -8,7 +8,11 @@ var request       = require('request');
 var WebSocket     = require('ws');
 var server        = require('http').createServer();
 var io            = require('socket.io')(server);
+var express       = require('express');
+var bodyParser    = require('body-parser');
+var app           = express();
 var token         = '123456abcdefg1234567';
+
 
 var serialPort = new serialport.SerialPort("/dev/ttyUSB0", {
   baudrate: 57600
@@ -67,25 +71,25 @@ board.on("ready", function() {
   var sensor        = new five.Sensor({pin: 0, freq: 100});
 
   sensor.scale(0, 100).on("change", function() {
-    //io.emit('volume_value', round(this.value, 0));
+    io.emit('volume_value', round(this.value, 0));
   });
 
   function volume(data) {
     switch(data) {
     case 'up_on':
-      //console.log('vol up on');
+      console.log('vol up on');
       volup_pin.high();
       break;
     case 'up_off':
-      //console.log('vol up off');
+      console.log('vol up off');
       volup_pin.low();
       break;
     case 'down_on':
-      //console.log('vol down on');
+      console.log('vol down on');
       voldown_pin.high();
       break;
     case 'down_off':
-      //console.log('vol down off');
+      console.log('vol down off');
       voldown_pin.low();
       break;
     default:
@@ -224,13 +228,10 @@ board.on("ready", function() {
 
   timeout('0m 0s')
     .then(function() {
-      // Update IP
-      // end Update IP
       mute_pin.low();
       // Read initial setting
       fs.readFile('./device/active_relay.json', 'utf8', (err, data) => {
         if (err) {
-          //console.log(err);
           // Write to file
           var active_relay = JSON.stringify({'active_relay': 1});
           fs.writeFile('./device/active_relay.json', active_relay, function() { });
@@ -240,23 +241,18 @@ board.on("ready", function() {
           switch(setting.active_relay) {
             case 1:
               toggle_Relay('1');
-              //console.log('relay 1 is active');
               break;
             case 2:
               toggle_Relay('2');
-              //console.log('relay 2 is active');
               break;
             case 3:
               toggle_Relay('3');
-              //console.log('relay 3 is active');
               break;
             case 4:
               toggle_Relay('4');
-              //console.log('relay 4 is active');
               break;
             case 5:
               toggle_Relay('5');
-              //console.log('relay 5 is active');
               break;
             default:
               //console.log('default');
@@ -308,42 +304,161 @@ board.on("ready", function() {
 
       });
 
-    // Socket.io connection
-    
-    io.on('connection', function(socket){
-      io.emit('machine_message', {'status':'online', 'message':'Welcome!'});
-      
-      socket.on('client_message', function(command) {
-        
-        if (command == 'toggle_relay_1') {
-          toggle_Relay('1');
-          io.emit('machine_message', {'active_relay':'1'});
-        } else if (command == 'toggle_relay_2') {
-          toggle_Relay('2');
-          io.emit('machine_message', {'active_relay':'2'});
-        } else if (command == 'toggle_relay_3') {
-          toggle_Relay('3');
-          io.emit('machine_message', {'active_relay':'3'});
-        } else if (command == 'toggle_relay_4') {
-          toggle_Relay('4');
-          io.emit('machine_message', {'active_relay':'4'});
-        } else if (command == 'toggle_relay_5') {
-          toggle_Relay('5');
-          io.emit('machine_message', {'active_relay':'5'});
-        } else if (command == 'volume_up_on') {
-          volume('up_on');
-        } else if (command == 'volume_up_off') {
-          volume('up_off');
-        } else if (command == 'volume_down_on') {
-          volume('down_on');
-        } else if (command == 'volume_down_off') {
-          volume('down_off');
+    // Express routes
+    var allowCrossDomain = function(req, res, next) {
+      res.header('Access-Control-Allow-Origin', '*');
+      res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE');
+      res.header('Access-Control-Allow-Headers', 'Content-Type');
+      next();
+    }
+
+    app.use(bodyParser.json());
+    app.use(allowCrossDomain);
+
+    app.post('/device/command', function(req, res) {
+      //console.log('request received');
+      var set_data = JSON.stringify(req.body);
+      if (set_data == '{"command":"toggle_relay_1"}') {
+        toggle_Relay('1');
+        res.end();
+        //res.send('toggle_relay_1');
+      } else if (set_data == '{"command":"toggle_relay_2"}') {
+        toggle_Relay('2');
+        res.end();
+        //res.send('toggle_relay_2');
+      } else if (set_data == '{"command":"toggle_relay_3"}') {
+        toggle_Relay('3');
+        res.end();
+        //res.send('toggle_relay_3');
+      } else if (set_data == '{"command":"toggle_relay_4"}') {
+        toggle_Relay('4');
+        res.end();
+        //res.send('toggle_relay_4');
+      } else if (set_data == '{"command":"toggle_relay_5"}') {
+        toggle_Relay('5');
+        res.end();
+        //res.send('toggle_relay_5');
+      } else if (set_data == '{"command":"volume_up_on"}') {
+        volume('up_on');
+        res.end();
+        //res.send('volume_up_on');
+      } else if (set_data == '{"command":"volume_up_off"}') {
+        volume('up_off');
+        res.end();
+        //res.send('volume_up_off');
+      } else if (set_data == '{"command":"volume_down_on"}') {
+        volume('down_on');
+        res.end();
+        //res.send('volume_down_on');
+      } else if (set_data == '{"command":"volume_down_off"}') {
+        volume('down_off');
+        res.end();
+        //res.send('volume_down_off');
+      } else {
+        res.send('Nothing here');
+        res.end();
+      }  
+    });
+
+    app.get('/device', function(req, res) {
+      res.send({'status':'online'});
+      res.end();
+    });
+
+    app.get('/media/artists', function(req, res) {
+      request('http://127.0.0.1:8080/jsonrpc?request={"jsonrpc": "2.0", "method": "AudioLibrary.GetArtists", "params": { "limits": { "start" : 0, "end": 3000000 }, "properties": ["thumbnail","fanart"], "sort": {"order":"ascending","method": "artist","ignorearticle": true } }, "id": 1}', function (error, response, body) {
+        if (!error && response.statusCode == 200) {
+          res.send(body);
+          res.end();
         } else {
-          //console.log('something else');
+          res.send('error');
+          res.end();
         }
-
       });
+    });
 
+    app.get('/media/albums', function(req, res) {
+      request('http://127.0.0.1:8080/jsonrpc?request={"jsonrpc": "2.0","params": {"properties": ["thumbnail","year","fanart","title","artistid"]}, "method": "AudioLibrary.GetAlbums", "id": "libAlbums"} }', function (error, response, body) {
+        if (!error && response.statusCode == 200) {
+          res.send(body);
+          res.end();
+        } else {
+          res.send('error');
+          res.end();
+        }
+      });
+    });
+
+    app.get('/media/songs', function(req, res) {
+      request('http://127.0.0.1:8080/jsonrpc?request={"jsonrpc": "2.0", "method": "AudioLibrary.GetSongs", "params": { "limits": { "start" : 0, "end": 3000000 }, "properties": [ "artist", "artistid", "albumid", "duration", "album", "track" ], "sort": { "order": "ascending", "method": "track", "ignorearticle": true } }, "id": "libSongs"}', function (error, response, body) {
+        if (!error && response.statusCode == 200) {
+          res.send(body);
+          res.end();
+        } else {
+          res.send('error');
+          res.end();
+        }
+      });
+    });
+
+    app.get('/media/movies', function(req, res) {
+      request('http://127.0.0.1:8080/jsonrpc?request={"jsonrpc": "2.0", "method": "VideoLibrary.GetMovies", "params": { "limits": { "start" : 0, "end": 3000000 }, "properties" : ["runtime","art","rating","thumbnail","year"], "sort": { "order": "ascending", "method": "label" } }, "id": "libMovies"}', function (error, response, body) {
+        if (!error && response.statusCode == 200) {
+          res.send(body);
+          res.end();
+        } else {
+          res.send('error');
+          res.end();
+        }
+      });
+    });
+
+    app.post('/media/movie_details', function(req, res) {
+      request('http://127.0.0.1:8080/jsonrpc?request={"jsonrpc": "2.0", "method":"VideoLibrary.GetMovieDetails","params":{"movieid": '+req.body.movieid+',"properties": ["runtime","thumbnail","rating","plot","year","fanart","genre"]}, "id": 1}', function (error, response, body) {
+        if (!error && response.statusCode == 200) {
+          res.send(body);
+          res.end();
+        } else {
+          res.send('error');
+          res.end();
+        }
+      });
+    });
+
+    app.post('/media/play', function(req, res) {
+      request('http://127.0.0.1:8080/jsonrpc?request={"id":"1","jsonrpc":"2.0","method":"Player.Open","params":{"item":'+JSON.stringify(req.body)+'}}', function (error, response, body) {
+        if (!error && response.statusCode == 200) {
+          res.send(body);
+          res.end();
+        } else {
+          res.send('error');
+          res.end();
+        }
+      });
+    });
+
+    app.post('/media/command', function(req, res) {
+      request('http://127.0.0.1:8080/jsonrpc?request={"id":"1","jsonrpc":"2.0","method":' + JSON.stringify(req.body.command) + '}', function (error, response, body) {
+        if (!error && response.statusCode == 200) {
+          res.send(body);
+          res.end();
+        } else {
+          res.send('error');
+          res.end();
+        }
+      });
+    });
+
+    app.post('/media/command_full', function(req, res) {
+      request('http://127.0.0.1:8080/jsonrpc?request='+JSON.stringify(req.body), function (error, response, body) {
+        if (!error && response.statusCode == 200) {
+          res.send(body);
+          res.end();
+        } else {
+          res.send('error');
+          res.end();
+        }
+      });
     });
 
     // Kodi connection
@@ -351,23 +466,34 @@ board.on("ready", function() {
     
     kodi.on('message', function(data) {
       var player = JSON.parse(data);
-      
-      if (player.method == 'Player.OnPlay') {
-        
-        if (player.params.data.player.playerid == 0) {
-          console.log('audio is playing');
-          io.emit('machine_message', 'audio is playing');
-        } else if (player.params.data.player.playerid == 1) {
-          console.log('video is playing');
-          io.emit('machine_message', 'video is playing');
-        } else if (player.params.data.player.playerid == -1) {
-          console.log('other player is playing');
-          io.emit('machine_message', 'other player is playing');
-        } else {
-          console.log('something strange is playing');
-          io.emit('machine_message', 'something strange is playing');
-        }
 
+      if (player.id == 'AudioGetItem') {
+        io.emit('machine_message', {'type':'audio', 'data': player.result.item});
+        io.emit('machine_message', {'player_type':'audio'});
+      } else if (player.id == 'VideoGetItem') {
+        io.emit('machine_message', {'type':'video', 'data': player.result.item});
+        io.emit('machine_message', {'player_type':'video'});
+      } else if (player.method == 'Player.OnStop') {
+        io.emit('machine_message', {'player_inactive':true});
+      } else if (player.method == 'Player.OnPause') {
+        io.emit('machine_message', {'player_pause':true});
+      } else if (player.method == 'Player.OnPlay') {
+        io.emit('machine_message', {'player_inactive':false});
+        io.emit('machine_message', {'player_pause':false});
+      } else {
+        // nothing
+      }
+
+      if (player.method == 'Player.OnPlay') {
+        if (player.params.data.player.playerid == 0) {
+          //console.log('player is audio, asking for more info');
+          kodi.send(JSON.stringify({"jsonrpc": "2.0", "method": "Player.GetItem", "params": { "properties": ["title", "album", "artist", "duration", "thumbnail"], "playerid": 0 }, "id": "AudioGetItem"}) );
+        } else if (player.params.data.player.playerid == 1) {
+          //console.log('player is video, asking for more info');
+          kodi.send(JSON.stringify({"jsonrpc": "2.0", "method": "Player.GetItem", "params": { "properties": ["title", "season", "episode", "duration", "showtitle", "tvshowid", "thumbnail", "fanart", "streamdetails"], "playerid": 1 }, "id": "VideoGetItem"}) );
+        } else {
+          // Exception
+        }
       } else {
         //console.log('nothing is playing');
       }
@@ -389,6 +515,10 @@ board.on("ready", function() {
     // Init Socket.io connection
     server.listen(3000, function(){
       //console.log('listening on *:3000');
+    });
+
+    app.listen(4000, function() {
+      //console.log('listening on 4000')
     });
 
 });
