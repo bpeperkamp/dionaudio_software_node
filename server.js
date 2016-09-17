@@ -20,7 +20,7 @@ var serialPort = new serialport.SerialPort("/dev/ttyUSB0", {
 
 var board = new five.Board({
   port: serialPort,
-  debug: false
+  debug: true
 });
 
 function round(value, decimals) {
@@ -116,7 +116,7 @@ board.on("ready", function() {
 
   function toggle_Relay3() {
     relay1.close();
-    relay2.open();
+    relay2.close();
     relay3.open();
     relay4.close();
     relay5.close();
@@ -124,7 +124,7 @@ board.on("ready", function() {
 
   function toggle_Relay4() {
     relay1.close();
-    relay2.close();
+    relay2.open();
     relay3.close();
     relay4.open();
     relay5.close();
@@ -132,7 +132,7 @@ board.on("ready", function() {
 
   function toggle_Relay5() {
     relay1.close();
-    relay2.close();
+    relay2.open();
     relay3.close();
     relay4.open();
     relay5.open();
@@ -259,6 +259,11 @@ board.on("ready", function() {
           }
         };
       });
+    });
+
+    timeout('0m 0.5s')
+    .then(function() {
+      mute_pin.high();
     });
 
     interval('5m 0s')
