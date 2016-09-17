@@ -461,6 +461,51 @@ board.on("ready", function() {
       });
     });
 
+    // What is currently playing
+    app.get('/media/currently_playing', function(req, res) {
+      request('http://127.0.0.1:8080/jsonrpc?request={"jsonrpc": "2.0", "method": "Player.GetActivePlayers", "id": 1}', function (error, response, body) {
+        if (!error && response.statusCode == 200) {
+          var result = JSON.parse(body);
+          // Check if result
+          if (result.result[0]) {
+            if (result.result[0].playerid == 0 || result.result[0].playerid == '0') {
+              request('http://127.0.0.1:8080/jsonrpc?request={"jsonrpc": "2.0", "method": "Player.GetItem", "params": { "properties": ["title", "album", "artist", "duration", "thumbnail"], "playerid": 0 }, "id": "AudioGetItem"}', function (error, response, body) {
+                if (!error && response.statusCode == 200) {
+                  res.send(body);
+                  res.end();
+                } else {
+                  res.send('error');
+                  res.end();
+                }
+              });
+            } else if (result.result[0].playerid == 1 || result.result[0].playerid == '1') {
+              request('http://127.0.0.1:8080/jsonrpc?request={"jsonrpc": "2.0", "method": "Player.GetItem", "params": { "properties": ["title", "season", "episode", "runtime", "showtitle", "tvshowid", "thumbnail", "file", "fanart", "streamdetails"], "playerid": 1 }, "id": "VideoGetItem"}', function (error, response, body) {
+                if (!error && response.statusCode == 200) {
+                  res.send(body);
+                  res.end();
+                } else {
+                  res.send('error');
+                  res.end();
+                }
+              });
+            } else {
+              res.send('other stuff is playing');
+              res.end();
+            }
+          } else {
+            //console.log('nothing is playing');
+            res.send('nothing is playing');
+            res.end();
+          }
+        } else {
+          res.send('error');
+          res.end();
+        }
+      });
+    });
+
+    
+
     // Kodi connection
     var kodi = new WebSocket('ws://127.0.0.1:9090/jsonrpc');
     
