@@ -11,8 +11,6 @@ var io            = require('socket.io')(server);
 var express       = require('express');
 var bodyParser    = require('body-parser');
 var app           = express();
-var token         = '123456abcdefg1234567';
-
 
 var serialPort = new serialport.SerialPort("/dev/ttyUSB0", {
   baudrate: 57600
@@ -26,6 +24,27 @@ var board = new five.Board({
 function round(value, decimals) {
   return Number(Math.round(value+'e'+decimals)+'e-'+decimals);
 }
+
+fs.readFile('./device/device.json', 'utf8', (err, data) => {
+	if (err) {
+		console.log('error');
+	} else {
+		var device = JSON.parse(data);
+		var network_data = {"network": ip.address()};
+		request({
+			method: 'POST',
+			uri: 'https://things.opensource-design.nl/api/login?' + 'email=' + encodeURIComponent(device.email) + '&password=' + encodeURIComponent(device.password),
+		})
+		.on('data', function(res) {
+			var result = JSON.parse(res.toString());
+			console.log(result.token);
+			fs.writeFile('./device/token.json', res.toString(), function() { });
+		})
+		.on('error', function(error) {
+			console.log('error sending data');
+		})
+	}
+});
 
 // Send IP number
 // fs.readFile('./device/device.json', 'utf8', (err, data) => {
