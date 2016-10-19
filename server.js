@@ -26,24 +26,34 @@ function round(value, decimals) {
 }
 
 fs.readFile('./device/device.json', 'utf8', (err, data) => {
-	if (err) {
-		console.log('error');
-	} else {
-		var device = JSON.parse(data);
-		var network_data = {"network": ip.address()};
-		request({
-			method: 'POST',
-			uri: 'https://things.opensource-design.nl/api/login?' + 'email=' + encodeURIComponent(device.email) + '&password=' + encodeURIComponent(device.password),
-		})
-		.on('data', function(res) {
-			var result = JSON.parse(res.toString());
-			console.log(result.token);
-			fs.writeFile('./device/token.json', res.toString(), function() { });
-		})
-		.on('error', function(error) {
-			console.log('error sending data');
-		})
-	}
+  if (err) {
+    console.log('error');
+  } else {
+    var device = JSON.parse(data);
+    request({
+      method: 'POST',
+      uri: 'https://things.opensource-design.nl/api/login?' + 'email=' + encodeURIComponent(device.email) + '&password=' + encodeURIComponent(device.password),
+    })
+    .on('data', function(res) {
+      var result = JSON.parse(res.toString());
+      var network_data = {"network": ip.address()};
+      fs.writeFile('./device/token.json', res.toString(), function() { });
+      request({
+        method: 'PATCH',
+        uri: 'https://things.opensource-design.nl/api/device?' + 'token="' + result.result + '"',
+        json: network_data
+      })
+      .on('data', function(data) {
+        console.log('Data sent!');
+      })
+      .on('error', function(error) {
+        console.log('error sending data');
+      })
+    })
+    .on('error', function(error) {
+      console.log('error reading file from filesystem');
+    })
+  }
 });
 
 // Send IP number
