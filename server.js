@@ -18,69 +18,12 @@ var serialPort = new serialport.SerialPort("/dev/ttyUSB0", {
 
 var board = new five.Board({
   port: serialPort,
-  debug: true
+  debug: false
 });
 
 function round(value, decimals) {
   return Number(Math.round(value+'e'+decimals)+'e-'+decimals);
 }
-
-fs.readFile('./device/device.json', 'utf8', (err, data) => {
-  if (err) {
-    console.log('error');
-  } else {
-    var device = JSON.parse(data);
-    request({
-      method: 'POST',
-      uri: 'https://things.opensource-design.nl/api/login?' + 'email=' + encodeURIComponent(device.email) + '&password=' + encodeURIComponent(device.password),
-    })
-    .on('data', function(res) {
-      var result = JSON.parse(res.toString());
-      var network_data = {"network": ip.address()};
-      fs.writeFile('./device/token.json', res.toString(), function() { });
-      request({
-        method: 'PATCH',
-        uri: 'https://things.opensource-design.nl/api/device?' + 'token="' + result.result + '"',
-        json: network_data
-      })
-      .on('data', function(data) {
-        console.log('Data sent!');
-      })
-      .on('error', function(error) {
-        console.log('error sending data');
-      })
-    })
-    .on('error', function(error) {
-      console.log('error reading file from filesystem');
-    })
-  }
-});
-
-// Send IP number
-// fs.readFile('./device/device.json', 'utf8', (err, data) => {
-//   if (err) {
-//     console.log('error');
-//   } else {
-//     var network_data = {"network": ip.address()};
-//     fs.writeFile('./device/data.json', ip.address(), function() { });
-//     request({
-//       method: 'PATCH',
-//       uri: 'https://things.opensource-design.nl/api/devices/' + data.replace(/(\r\n|\n|\r)/gm,"") + '?api_token=' + token,
-//       agentOptions: {
-//           securityOptions: 'SSL_OP_NO_SSLv3'
-//       },
-//       gzip: true,
-//       json: network_data
-//     })
-//     .on('data', function(data) {
-//       console.log('data sent');
-//     })
-//     .on('error', function(error) {
-//       console.log('error sending data');
-//     })
-//   }
-// });
-// end Send IP
 
 // Init Board and Johnny 5
 board.on("ready", function() {
@@ -97,11 +40,11 @@ board.on("ready", function() {
   var voldown_pin   = new five.Pin(17);
   var mute_pin      = new five.Pin(15);
 
-  var sensor        = new five.Sensor({pin: 0, freq: 100});
+  //var sensor        = new five.Sensor({pin: 0, freq: 100});
 
-  sensor.scale(0, 100).on("change", function() {
-    io.emit('volume_value', round(this.value, 0));
-  });
+  //sensor.scale(0, 100).on("change", function() {
+    //io.emit('volume_value', round(this.value, 0));
+  //});
 
   function volume(data) {
     switch(data) {
@@ -295,49 +238,6 @@ board.on("ready", function() {
       mute_pin.high();
     });
 
-    interval('5m 0s')
-      .execute(function() {
-        // Update IP
-        fs.readFile('./device/data.json', 'utf8', (err, data) => {
-          if (err) {
-            console.log('error');
-          } else {
-            // Check if IP has changed
-            if (data == ip.address()) {
-              //console.log('IP has not changed');
-            } else {
-              //console.log('need to update ip');
-              // Update IP
-              fs.readFile('./device/device.json', 'utf8', (err, data) => {
-                if (err) {
-                  console.log('error');
-                } else {
-                  var network_data = {"network": ip.address()};
-                  fs.writeFile('./device/data.json', ip.address(), function() { });
-                  request({
-                    method: 'PATCH',
-                    uri: 'https://things.opensource-design.nl/api/devices/' + data.replace(/(\r\n|\n|\r)/gm,"") + '?api_token=' + token,
-                    agentOptions: {
-                        securityOptions: 'SSL_OP_NO_SSLv3'
-                    },
-                    gzip: true,
-                    json: network_data
-                  })
-                  .on('data', function(data) {
-                    //console.log('data sent');
-                  })
-                  .on('error', function(error) {
-                    //console.log('error sending data');
-                  })
-                }
-              });
-              // end Update IP
-            }
-          }
-        });
-
-      });
-
     // Express routes
     var allowCrossDomain = function(req, res, next) {
       res.header('Access-Control-Allow-Origin', '*');
@@ -348,6 +248,7 @@ board.on("ready", function() {
 
     app.use(bodyParser.json());
     app.use(allowCrossDomain);
+    //app.use(express.basicAuth('dionaudio_user', 'dionaudio_2015'));
 
     app.post('/device/command', function(req, res) {
       //console.log('request received');
@@ -391,7 +292,7 @@ board.on("ready", function() {
       } else {
         res.send('Nothing here');
         res.end();
-      }  
+      }
     });
 
     app.get('/device', function(req, res) {
@@ -425,6 +326,54 @@ board.on("ready", function() {
 
     app.get('/media/songs', function(req, res) {
       request('http://127.0.0.1:8080/jsonrpc?request={"jsonrpc": "2.0", "method": "AudioLibrary.GetSongs", "params": { "limits": { "start" : 0, "end": 3000000 }, "properties": [ "artist", "artistid", "albumid", "duration", "album", "track" ], "sort": { "order": "ascending", "method": "track", "ignorearticle": true } }, "id": "libSongs"}', function (error, response, body) {
+        if (!error && response.statusCode == 200) {
+          res.send(body);
+          res.end();
+        } else {
+          res.send('error');
+          res.end();
+        }
+      });
+    });
+
+    app.post('/media/artist_albums', function(req, res) {
+      request('http://127.0.0.1:8080/jsonrpc?request={"jsonrpc": "2.0","params": {"filter": {"artistid": '+req.body.artistid+'}, "properties": ["thumbnail","year","title","artistid","artist"]}, "method": "AudioLibrary.GetAlbums", "id": "libAlbums"} }', function (error, response, body) {
+        if (!error && response.statusCode == 200) {
+          res.send(body);
+          res.end();
+        } else {
+          res.send('error');
+          res.end();
+        }
+      });
+    });
+
+    app.post('/media/artist_details', function(req, res) {
+      request('http://127.0.0.1:8080/jsonrpc?request={"jsonrpc": "2.0", "method": "AudioLibrary.GetArtistDetails", "params": {"properties": ["fanart", "mood", "description"], "artistid": '+req.body.artistid+'}, "id": 1}', function (error, response, body) {
+        if (!error && response.statusCode == 200) {
+          res.send(body);
+          res.end();
+        } else {
+          res.send('error');
+          res.end();
+        }
+      });
+    });
+
+    app.post('/media/album_details', function(req, res) {
+      request('http://127.0.0.1:8080/jsonrpc?request={"jsonrpc": "2.0", "method": "AudioLibrary.GetAlbumDetails", "params":{"albumid":'+req.body.albumid+', "properties": ["artist", "fanart"]}, "id": 1}', function (error, response, body) {
+        if (!error && response.statusCode == 200) {
+          res.send(body);
+          res.end();
+        } else {
+          res.send('error');
+          res.end();
+        }
+      });
+    });
+
+    app.post('/media/album_songs', function(req, res) {
+      request('http://127.0.0.1:8080/jsonrpc?request={"jsonrpc": "2.0", "method": "AudioLibrary.GetSongs", "params": {"filter": {"albumid":'+req.body.albumid+'}, "properties": [ "artist", "artistid", "duration", "album", "track" ]}, "id": 1}', function (error, response, body) {
         if (!error && response.statusCode == 200) {
           res.send(body);
           res.end();
@@ -538,11 +487,11 @@ board.on("ready", function() {
       });
     });
 
-    
+
 
     // Kodi connection
     var kodi = new WebSocket('ws://127.0.0.1:9090/jsonrpc');
-    
+
     kodi.on('message', function(data) {
       var player = JSON.parse(data);
 

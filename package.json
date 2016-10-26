@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "main": "test.js",
   "dependencies": {
+    "basic-auth": "^1.0.4",
     "body-parser": "^1.15.2",
     "compression": "^1.6.2",
     "easy-timeout": "^1.0.1",
